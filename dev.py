@@ -127,8 +127,27 @@ def write_fixfreq():
     wf_dst.close()
 
 
-main_readwrite()
-# data, wf = parse_wav('sample.wav')
-# pos = 44100*5
-# val = struct.unpack('<i', data[pos:pos + 4])
-# print val
+def test_detector():
+    import numpy
+    from detector_dwt import detect
+
+    bpms = []
+    window = 3
+
+    wf = wave.open('dst.wav', 'r')
+    nchannels, sampwidth, framerate, nframes = wf.getparams()[:4]
+
+    start = 0
+    step = window * framerate
+    while start < nframes:
+        data = wf.readframes(step)
+        wdata = numpy.fromstring(data, dtype='<i')
+        bpms.append(detect(wdata, framerate))
+        start += step
+
+    wf.close()
+
+    print numpy.median(bpms)
+
+
+test_detector()
