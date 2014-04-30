@@ -127,27 +127,36 @@ def write_fixfreq():
     wf_dst.close()
 
 
-def test_detector():
-    import numpy
-    from detector_dwt import detect
-
+def cal_file(filename, window=3):
     bpms = []
-    window = 3
 
-    wf = wave.open('dst.wav', 'r')
+    wf = wave.open(filename, 'rb')
     nchannels, sampwidth, framerate, nframes = wf.getparams()[:4]
 
-    start = 0
+    # data type
+    if sampwidth == 2:
+        dtype  = '<h'
+    elif sampwidth == 4:
+        dtype  = '<i'
+
     step = window * framerate
-    while start < nframes:
-        data = wf.readframes(step)
-        wdata = numpy.fromstring(data, dtype='<i')
-        bpms.append(detect(wdata, framerate))
-        start += step
+    for x in range(0, nframes, step):
+        wdata = numpy.fromstring(wf.readframes(step), dtype=dtype)[::nchannels]  # only detect first channel
+
+        # break when wdata too short
+        if len(wdata) < step:
+            break
+
+        bpm = detect(wdata, framerate)
+        print bpm
+        bpms.append(bpm)
 
     wf.close()
 
-    print numpy.median(bpms)
+    return numpy.median(bpms)
 
 
-test_detector()
+import sys
+import numpy
+from detector_dwt import detect
+print cal_file(sys.argv[1])
