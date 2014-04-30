@@ -58,7 +58,7 @@ def detect(data, fs):
     peak_ndx_adjusted = peak_ndx[0] + min_ndx
     bpm = 60. / peak_ndx_adjusted * (fs / max_decimation)
 
-    return float(bpm)
+    return int(bpm)
 
 
 if __name__ == '__main__':
@@ -83,11 +83,11 @@ if __name__ == '__main__':
     # Generate
     wdata = bar_data * int(window / bar_time)
 
-    # Detect
-    bpm = detect(wdata, framerate)
-
     print '      window: %d' % window
     print '   framerate: %d' % framerate
     print '   data size: %d' % len(wdata)
     print 'generate BPM: %d' % bpm
-    print 'detector BPM: %.2f' % bpm
+
+    # Detect
+    bpm = detect(wdata, framerate)
+    print 'detector BPM: %d' % bpm
