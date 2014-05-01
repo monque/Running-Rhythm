@@ -7,22 +7,26 @@ import numpy
 from detector_dwt import detect
 
 
+BPM_MIN = 80
+BPM_MAX = 220
+BTABLE = {x: 0 for x in range(BPM_MIN, BPM_MAX + 1)}
+
+
 def blist_analyze(blist, tolerance=3, verbose=False):
     if not blist:
         raise ValueError('Empty BPM list')
 
     # Convert to dict
-    btable = {}
-    for x in blist:
-        if x in btable:
-            btable[x] += 1
-        else:
-            btable[x] = 1
+    btable = BTABLE.copy()
+    for bpm in blist:
+        for b in [bpm, bpm * 2, bpm / 2]:  # Multiple
+            if b in btable:
+                btable[b] += 1
 
-    # Sum by tolerance
+    # Calculate weight
     final_bpm = final_weight = 0
     for bpm in sorted(btable.keys()):
-        occu = btable[bpm]
+        # Tolerance
         wlist = []
         for b in range(bpm - tolerance, bpm + tolerance + 1):
             if b not in btable:
@@ -31,7 +35,7 @@ def blist_analyze(blist, tolerance=3, verbose=False):
             wlist.append(factor * btable[b])
         weight = sum(wlist)
 
-        if verbose:
+        if verbose and weight > 0:
             print '%3d %5.2f %s' % (bpm, weight, wlist)
 
         if weight > final_weight:
