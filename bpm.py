@@ -1,3 +1,4 @@
+#! /usr/bin/env python
 import argparse
 import wave
 
@@ -38,7 +39,7 @@ def blist_analyze(blist, tolerance=3, verbose=False):
 
 
 
-def detect_wav(filename, window=3):
+def detect_wav(filename, window=3, verbose=False):
     wf = wave.open(filename, 'rb')
     nchannels, sampwidth, framerate, nframes = wf.getparams()[:4]
 
@@ -65,6 +66,9 @@ def detect_wav(filename, window=3):
             continue
         blist.append(bpm)
 
+        if verbose:
+            print '%5.1f%% %d' % (100. * x / nframes, bpm)
+
     wf.close()
     return blist
 
@@ -82,7 +86,7 @@ if __name__ == '__main__':
 
     op_showfile = len(args.file) > 1
     for filename in args.file:
-        blist = detect_wav(filename, args.window)
+        blist = detect_wav(filename, args.window, args.verbose)
         bpm, weightp = blist_analyze(blist, args.tolerance, args.verbose)
 
         if op_showfile:
