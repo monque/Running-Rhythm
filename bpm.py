@@ -32,7 +32,7 @@ def blist_analyze(blist, tolerance=3, verbose=False):
         weight = sum(wlist)
 
         if verbose:
-            print '%4d %5.2f %s' % (bpm, weight, wlist)
+            print '%3d %5.2f %s' % (bpm, weight, wlist)
 
         if weight > final_weight:
             final_bpm = bpm
@@ -42,7 +42,7 @@ def blist_analyze(blist, tolerance=3, verbose=False):
     return final_bpm, int(final_weightp)
 
 
-def detect_wav(filename, window=3, verbose=False):
+def detect_wav(filename, window=3, invertmix=False, verbose=False):
     wf = wave.open(filename, 'rb')
     nchannels, sampwidth, framerate, nframes = wf.getparams()[:4]
 
@@ -56,7 +56,13 @@ def detect_wav(filename, window=3, verbose=False):
     blist = []
     step = window * framerate
     for x in range(0, nframes, step):
-        wdata = numpy.fromstring(wf.readframes(step), dtype=dtype)[::nchannels]  # only detect first channel
+        wdata = numpy.fromstring(wf.readframes(step), dtype=dtype)
+        if invertmix and nchannels == 2:  # try to remove vocal by mixing left, invert right
+            left = wdata[::2]
+            right = wdata[1::2]
+            wdata = left - right
+        else:
+            wdata = wdata[::nchannels]  # only detect first channel
 
         # Break when wdata too short
         if len(wdata) < step:
@@ -80,19 +86,24 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process .wav file to determine the Beats Per Minute.')
     parser.add_argument('file', type=str, nargs='+',
         help='.wav file for processing')
-    parser.add_argument('--window', '-w', type=int, default=3, metavar='SECOND',
-        help='size of the the window (seconds) that will be scanned to determine the bpm.  Typically less than 10 seconds. [3]')
+    parser.add_argument('--window', '-w', type=int, default=3, metavar='S',
+        help='size of the the window (seconds) that will be scanned to determine the bpm. Default: 3')
     parser.add_argument('--tolerance', '-t', type=int, default=3, metavar='N',
-        help='tolerance using in window BPM result analyze. [3]')
+        help='tolerance using in window BPM result analyze. Default: 3')
+    parser.add_argument('--invertmix', action='store_true',
+        help='[EXPERIMENTAL] mix left channel with inverted right channel, it will remove vocal to improved detect. Default: False')
     parser.add_argument('--verbose', '-v', action='store_true')
     args = parser.parse_args()
 
     op_showfile = len(args.file) > 1
     for filename in args.file:
-        blist = detect_wav(filename, args.window, args.verbose)
+        if args.verbose:
+            print 'process %s' % filename
+
+        blist = detect_wav(filename, args.window, args.invertmix, args.verbose)
         bpm, weightp = blist_analyze(blist, args.tolerance, args.verbose)
 
         if op_showfile:
-            print filename, bpm, weightp
+            print '%3d %3d %s' % (bpm, weightp, filename)
         else:
-            print bpm, weightp
+            print '%3d %3d' % (bpm, weightp)
