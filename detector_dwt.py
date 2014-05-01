@@ -29,7 +29,7 @@ def detect(data, fs):
             cA, cD = pywt.dwt(cA, 'db4')
 
         # 2) Filter
-        cD = scipy.signal.lfilter([0.01], [1 - 0.99], cD)
+        cA = scipy.signal.lfilter([0.01], [1 - 0.99], cD)
 
         # 4) Subtractargs.filename out the mean.
 
