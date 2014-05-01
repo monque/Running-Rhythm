@@ -6,69 +6,86 @@ import numpy
 from detector_dwt import detect
 
 
-def cal_file(filename, window=3):
-    bpm_table = {}
+def blist_analyze(blist, tolerance=3, verbose=False):
+    # Convert to dict
+    btable = {}
+    for x in blist:
+        if x in btable:
+            btable[x] += 1
+        else:
+            btable[x] = 1
 
+    # Sum by tolerance
+    final_bpm = final_weight = 0
+    for bpm, occu in btable.items():
+        wlist = []
+        for b in range(bpm - tolerance, bpm + tolerance + 1):
+            if b not in btable:
+                continue
+            factor = 1 - 1. * abs(bpm - b) / (tolerance + 1)
+            wlist.append(factor * btable[b])
+        weight = sum(wlist)
+
+        if verbose:
+            print '%4d %5.2f %s' % (bpm, weight, wlist)
+
+        if weight > final_weight:
+            final_bpm = bpm
+            final_weight = weight
+
+    final_weightp = 100. * final_weight / len(blist)
+    return final_bpm, int(final_weightp)
+
+
+
+def detect_wav(filename, window=3):
     wf = wave.open(filename, 'rb')
     nchannels, sampwidth, framerate, nframes = wf.getparams()[:4]
 
-    # data type
+    # Data type
     if sampwidth == 2:
         dtype  = '<h'
     elif sampwidth == 4:
         dtype  = '<i'
 
+    # Scan data by window
+    blist = []
     step = window * framerate
     for x in range(0, nframes, step):
         wdata = numpy.fromstring(wf.readframes(step), dtype=dtype)[::nchannels]  # only detect first channel
 
-        # break when wdata too short
+        # Break when wdata too short
         if len(wdata) < step:
             break
 
-        # detect
+        # Detect
         try:
             bpm = detect(wdata, framerate)
         except:
             continue
-        if bpm in bpm_table:
-            bpm_table[bpm] += 1
-        else:
-            bpm_table[bpm] = 1
+        blist.append(bpm)
 
     wf.close()
-
-    # result
-    tolerance = 3
-    result = None
-    for key, val in bpm_table.items():
-        if key > 200:
-            continue
-
-        total = 0
-        for k in range(key - tolerance, key + tolerance + 1):
-            if k in bpm_table:
-                la = 1. * abs(key - k) / (tolerance + 1)
-                la = 1 - la
-                total += 1. * bpm_table[k] * la
-        if result is None or result['freq'] < total:
-            result = {
-                'bpm': key,
-                'freq': int(total),
-            }
-    result['ratio'] = 100. * result['freq'] / sum(bpm_table.values())
-
-    return result['bpm'], int(result['ratio'])
+    return blist
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process .wav file to determine the Beats Per Minute.')
-    parser.add_argument('--file', required=True,
-                   help='.wav file for processing')
-    parser.add_argument('--window', type=float, default=3,
-                   help='size of the the window (seconds) that will be scanned to determine the bpm.  Typically less than 10 seconds. [3]')
+    parser.add_argument('file', type=str, nargs='+',
+        help='.wav file for processing')
+    parser.add_argument('--window', '-w', type=int, default=3, metavar='SECOND',
+        help='size of the the window (seconds) that will be scanned to determine the bpm.  Typically less than 10 seconds. [3]')
+    parser.add_argument('--tolerance', '-t', type=int, default=3, metavar='N',
+        help='tolerance using in window BPM result analyze. [3]')
+    parser.add_argument('--verbose', '-v', action='store_true')
     args = parser.parse_args()
 
-    filename = args.file
-    bpm, ratio = cal_file(filename)
-    print bpm, ratio
+    op_showfile = len(args.file) > 1
+    for filename in args.file:
+        blist = detect_wav(filename, args.window)
+        bpm, weightp = blist_analyze(blist, args.tolerance, args.verbose)
+
+        if op_showfile:
+            print filename, bpm, weightp
+        else:
+            print bpm, weightp
