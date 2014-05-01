@@ -19,7 +19,6 @@ def detect(data, fs):
     max_ndx = 60. / 40 * (fs / max_decimation)
 
     for loop in range(0, levels):
-        cD = []
         # 1) DWT
         if loop == 0:
             cA, cD = pywt.dwt(data, 'db4')

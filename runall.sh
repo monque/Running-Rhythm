@@ -1,11 +1,16 @@
-> result.log
+if [ ! -d "$1" ]; then
+    echo "error starting dir"
+    exit 1
+fi
 
-find music -name '*.mp3' | sort | while read file; do
-# find music -name '*Twisted*.mp3' | while read file; do
-    mpg123 -q -w sample.wav "$file"
-    bpm=`python bpm.py --file sample.wav`
+> wav/result.log
+tmpfile="wav/tmp.wav"
+find "$1" -name '*.mp3' | sort | while read file; do
+    mpg123 -q -w $tmpfile "$file"
+
+    bpm=`./bpm.py --downsample 4 --invertmix $tmpfile`
 
     result="$bpm\t$file"
     echo -e $result
-    echo -e $result >> result.log
+    echo -e $result >> wav/result.log
 done

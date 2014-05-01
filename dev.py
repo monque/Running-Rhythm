@@ -1,4 +1,6 @@
 from datetime import timedelta
+import numpy
+import scipy.signal
 import struct
 import wave
 
@@ -35,31 +37,26 @@ def wav_load(filename):
 
 
 def main_readwrite():
-    data, wf_src = wav_load('sample.wav')
+    data, wf_src = wav_load('wav/wjgc.wav')
     # data, wf_src = parse_wav('sample.wav')
 
     # write
-    wf_dst = wave.open('dst.wav', 'w')
-    wf_dst.setnchannels(2)
+    wf_dst = wave.open('wav/dev.wav', 'w')
+    wf_dst.setnchannels(1)
     wf_dst.setframerate(44100)
     wf_dst.setsampwidth(2)
 
-    track = ''
-    for x in range(0, 10 * 44100):
-        fdata = data[x * 4:x * 4 + 4]
-        # fval, = struct.unpack('<h', fdata)
-        # print '%5d' % (fval),
+    wdata = numpy.fromstring(data, dtype='<h')
+    left = wdata[::2]
+    right = wdata[1::2]
+    wdata = (left - right) / 2
+    wdata = scipy.signal.lfilter([0.01], [1 - 0.90], wdata)
 
-        # reduce bit-depth
-        # fval = fval / 256 + 128
+    data = ''
+    for x in wdata:
+        data += struct.pack('<h', x)
 
-        # fdata = struct.pack('<B', fval)
-        track += fdata
-
-        # dval, = struct.unpack('<b', fdata)
-        # print '%5d' % (dval)
-
-    wf_dst.writeframes(track)
+    wf_dst.writeframes(data)
     wf_dst.close()
 
 
@@ -156,7 +153,21 @@ def cal_file(filename, window=3):
     return numpy.median(bpms)
 
 
-import sys
-import numpy
-from detector_dwt import detect
-print cal_file(sys.argv[1])
+blist = [
+    93, 65, 96, 60, 115, 69, 218, 183, 66, 105, 145,
+    136, 98, 60, 68, 206, 82, 111, 105, 71, 65, 68,
+    163, 74, 133, 100, 151, 96, 158, 100, 108, 176,
+    74, 141, 203, 110, 80, 116, 95, 92, 99, 206,
+    65, 151, 161, 74, 108, 68, 130, 161, 218, 219,
+    84, 184, 70, 208, 140, 69, 68, 141, 135, 157,
+    143, 108, 107, 202, 218, 220, 93, 65, 95, 60,
+    117, 69, 92, 219, 93, 106, 111, 180, 92, 84,
+    68, 186, 176, 70, 79, 219, 121, 66, 209, 110,
+    70, 138, 135, 79, 162, 154, 128, 116, 64, 139,
+    139, 140, 125, 114, 123, 63, 93, 139, 199, 139,
+    122, 70, 151, 70, 60, 186, 78, 218, 184, 143,
+    141, 140, 139, 193, 133, 168, 188, 82, 83, 62,
+    93, 96, 219, 217
+]
+import bpm
+print bpm.blist_analyze(blist, verbose=True)
