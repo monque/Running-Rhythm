@@ -60,7 +60,7 @@ def detect_wav(filename, window=3, invertmix=False, verbose=False):
         if invertmix and nchannels == 2:  # try to remove vocal by mixing left, invert right
             left = wdata[::2]
             right = wdata[1::2]
-            wdata = left - right
+            wdata = (left - right) / 2
         else:
             wdata = wdata[::nchannels]  # only detect first channel
 
@@ -100,7 +100,12 @@ if __name__ == '__main__':
         if args.verbose:
             print 'process %s' % filename
 
-        blist = detect_wav(filename, args.window, args.invertmix, args.verbose)
+        # Detect
+        blist = detect_wav(filename, args.window, False, args.verbose)
+        if args.invertmix:
+            blist += detect_wav(filename, args.window, True, args.verbose)
+
+        # Analyze
         bpm, weightp = blist_analyze(blist, args.tolerance, args.verbose)
 
         if op_showfile:
