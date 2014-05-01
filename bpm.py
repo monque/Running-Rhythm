@@ -8,6 +8,9 @@ from detector_dwt import detect
 
 
 def blist_analyze(blist, tolerance=3, verbose=False):
+    if not blist:
+        raise ValueError('Empty BPM list')
+
     # Convert to dict
     btable = {}
     for x in blist:
@@ -18,7 +21,8 @@ def blist_analyze(blist, tolerance=3, verbose=False):
 
     # Sum by tolerance
     final_bpm = final_weight = 0
-    for bpm, occu in btable.items():
+    for bpm in sorted(btable.keys()):
+        occu = btable[bpm]
         wlist = []
         for b in range(bpm - tolerance, bpm + tolerance + 1):
             if b not in btable:
@@ -36,7 +40,6 @@ def blist_analyze(blist, tolerance=3, verbose=False):
 
     final_weightp = 100. * final_weight / len(blist)
     return final_bpm, int(final_weightp)
-
 
 
 def detect_wav(filename, window=3, verbose=False):
