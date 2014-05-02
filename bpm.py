@@ -3,6 +3,7 @@ import argparse
 import wave
 
 import numpy
+import scipy.signal
 
 from detector_dwt import detect
 
@@ -51,26 +52,31 @@ def select_bpm(blist, tolerance=3, verbose=False):
     return final_bpm, final_proportion
 
 
-def detect_wav(filename, window=3, overlap=0, down_factor=1, rmvocal=False, verbose=False):
+def detect_wav(filename, window=3, overlap=0, rmvocal=False, lowpass=False, down_factor=1, verbose=False):
     wf = wave.open(filename, 'rb')
     nchannels, sampwidth, framerate, nframes = wf.getparams()[:4]
 
-    odata = []
+    # Options init
+    if overlap > 0:
+        odata = []
+    if lowpass:
+        f = scipy.signal.firwin(numtaps=20, cutoff=8, nyq=20)
+
     blist = []
     step = window * framerate
     for x in range(0, nframes, step):
         # Read window then convert
         wdata = numpy.fromstring(wf.readframes(step), dtype='<i%d' % sampwidth)
 
-        # Extract sample
+        # Mix into one channel
         if rmvocal and nchannels == 2:
-            # remove vocal by mix invert channel
+            # remove vocal by mixing invert channel
             wdata = (wdata[::2] - wdata[1::2]) / 2
         else:
-            # only detect first channel
+            # only first channel
             wdata = wdata[::nchannels]
 
-        # Break when sample too short
+        # Break if sample too short
         if len(wdata) < step:
             break
 
@@ -82,6 +88,10 @@ def detect_wav(filename, window=3, overlap=0, down_factor=1, rmvocal=False, verb
         # Downsample
         if down_factor > 1:
             wdata = wdata[::down_factor]
+
+        # Low pass filter
+        if lowpass:
+            wdata = scipy.signal.lfilter(f, [1.0], wdata)
 
         # Detect
         try:
@@ -106,8 +116,9 @@ if __name__ == '__main__':
     # Detect
     parser.add_argument('--window', '-w', type=int, default=3, metavar='S', help='size of the window (seconds) that will be scanned to determine the bpm. Default: 3')
     parser.add_argument('--overlap', '-o', type=int, default=0, metavar='S', help='size of the overlap of window (seconds). Default: 0')
-    parser.add_argument('--rmvocal', action='store_true', help='[EXPERIMENTAL] try to remove vocal by mixing left channel with inverted right channel. Default: False')
-    parser.add_argument('--downsample', type=int, default=1, metavar='N', help='[EXPERIMENTAL] downsample by an integer factor that will increase speed. Default: 1')
+    parser.add_argument('--rmvocal', action='store_true', help='remove vocal by mixing left with inverted right channel. Default: False')
+    parser.add_argument('--lowpass', action='store_true', help='use Low Pass Filter to cut treble sound. Default: False')
+    parser.add_argument('--downsample', type=int, default=1, metavar='N', help='downsample by an integer factor that will increase speed. Default: 1')
     # Select
     parser.add_argument('--tolerance', '-t', type=int, default=3, metavar='N', help='tolerance using in select final BPM. Default: 3')
     args = parser.parse_args()
@@ -122,8 +133,9 @@ if __name__ == '__main__':
         options = {
             'window': args.window,
             'overlap': args.overlap,
-            'down_factor': args.downsample,
             'rmvocal': False,
+            'lowpass': args.lowpass,
+            'down_factor': args.downsample,
             'verbose': args.verbose,
         }
         blist = detect_wav(filename, **options)

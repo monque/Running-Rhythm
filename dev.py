@@ -135,7 +135,7 @@ def dev_process(file_in, file_out, func_process):
 
     # Write
     wf_out = wave.open(file_out, 'wb')
-    wf_out.setnchannels(1)
+    wf_out.setnchannels(2)
     wf_out.setframerate(44100)  # 44.1khz
     wf_out.setsampwidth(2)  # 16bit
     wf_out.writeframes(data_out)
@@ -155,5 +155,45 @@ def process_rmvocal(data_in):
     return data_out
 
 
+def process_treble_cut(data_in):
+    w_in = numpy.fromstring(data_in, dtype='<i2')
+
+    # Cut
+    unit = 44100 * 2
+    s_begin = 30 * unit
+    s_end = 40 * unit
+    w_in = w_in[s_begin:s_end]
+
+    # Create Filter
+    f = scipy.signal.firwin(numtaps=20, cutoff=4, nyq=20)
+    print type(f), f
+
+    # Do filter
+    w_out = scipy.signal.lfilter(f, [1.0], w_in)
+
+    data_out = ''
+    for x in w_out:
+        if x > 32767:
+            x = 32767
+        try:
+            data_out += struct.pack('<h', x)
+        except struct.error as e:
+            print 'value:', x, 'error:', e
+            raise e
+
+    return data_out
+
+
 if __name__ == '__main__':
-    dev_process('wav/163_33_陈奕迅 - 44.忘记歌词.wav', 'wav/dev.wav', process_rmvocal)
+    # 115_30_陈奕迅 - 29.阿士匹灵.wav
+    # 117_70_I Saved the World Today - Eurythmics.wav
+    # 122_76_Only This Moment - Röyksopp.wav
+    # 136_66_Geri Halliwell - 10.It's Raining Men.wav
+    # 140_66_The Cure - 07.Lovesong.wav
+    # 163_33_陈奕迅 - 44.忘记歌词.wav
+    # 164_41_孙燕姿 - 01.世说心语.wav
+    # 165_50_Hoobastank - 08.The Reason.wav
+    # 170_24_Tears For Fears - 01.Sowing the seeds of love.wav
+    # 192_52_Blur - 01.For Tomorrow.mp3.wav
+
+    dev_process('wav/164_41_孙燕姿 - 01.世说心语.wav', 'wav/dev.wav', process_treble_cut)
