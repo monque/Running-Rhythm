@@ -133,15 +133,12 @@ if __name__ == '__main__':
         options = {
             'window': args.window,
             'overlap': args.overlap,
-            'rmvocal': False,
+            'rmvocal': args.rmvocal,
             'lowpass': args.lowpass,
             'down_factor': args.downsample,
             'verbose': args.verbose,
         }
         blist = detect_wav(filename, **options)
-        if args.rmvocal:
-            options['rmvocal'] = True
-            blist += detect_wav(filename, **options)
 
         # Select
         bpm, proportion = select_bpm(blist, args.tolerance, args.verbose)
