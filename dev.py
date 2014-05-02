@@ -1,16 +1,18 @@
+# coding=utf-8
 from datetime import timedelta
-import numpy
-import scipy.signal
 import struct
 import wave
 
+import numpy
+import scipy.signal
 
-def wav_load(filename):
+
+def load_wav(filename):
     attr = {
         'filename': filename,
     }
 
-    wf = wave.open(filename, 'r')
+    wf = wave.open(filename, 'rb')
 
     if wf.getnchannels() == 1:
         attr['channel'] = 'mono'
@@ -34,30 +36,6 @@ def wav_load(filename):
     data = wf.readframes(attr['frame_count'])
 
     return data, wf
-
-
-def main_readwrite():
-    data, wf_src = wav_load('wav/wjgc.wav')
-    # data, wf_src = parse_wav('sample.wav')
-
-    # write
-    wf_dst = wave.open('wav/dev.wav', 'w')
-    wf_dst.setnchannels(1)
-    wf_dst.setframerate(44100)
-    wf_dst.setsampwidth(2)
-
-    wdata = numpy.fromstring(data, dtype='<h')
-    left = wdata[::2]
-    right = wdata[1::2]
-    wdata = (left - right) / 2
-    wdata = scipy.signal.lfilter([0.01], [1 - 0.90], wdata)
-
-    data = ''
-    for x in wdata:
-        data += struct.pack('<h', x)
-
-    wf_dst.writeframes(data)
-    wf_dst.close()
 
 
 def parse_wav(filename):
@@ -124,50 +102,58 @@ def write_fixfreq():
     wf_dst.close()
 
 
-def cal_file(filename, window=3):
-    bpms = []
-
-    wf = wave.open(filename, 'rb')
-    nchannels, sampwidth, framerate, nframes = wf.getparams()[:4]
-
-    # data type
-    if sampwidth == 2:
-        dtype  = '<h'
-    elif sampwidth == 4:
-        dtype  = '<i'
-
-    step = window * framerate
-    for x in range(0, nframes, step):
-        wdata = numpy.fromstring(wf.readframes(step), dtype=dtype)[::nchannels]  # only detect first channel
-
-        # break when wdata too short
-        if len(wdata) < step:
-            break
-
-        bpm = detect(wdata, framerate)
-        print bpm
-        bpms.append(bpm)
-
-    wf.close()
-
-    return numpy.median(bpms)
+def test_select_bpm():
+    blist = [
+        93, 65, 96, 60, 115, 69, 218, 183, 66, 105, 145,
+        136, 98, 60, 68, 206, 82, 111, 105, 71, 65, 68,
+        163, 74, 133, 100, 151, 96, 158, 100, 108, 176,
+        74, 141, 203, 110, 80, 116, 95, 92, 99, 206,
+        65, 151, 161, 74, 108, 68, 130, 161, 218, 219,
+        84, 184, 70, 208, 140, 69, 68, 141, 135, 157,
+        143, 108, 107, 202, 218, 220, 93, 65, 95, 60,
+        117, 69, 92, 219, 93, 106, 111, 180, 92, 84,
+        68, 186, 176, 70, 79, 219, 121, 66, 209, 110,
+        70, 138, 135, 79, 162, 154, 128, 116, 64, 139,
+        139, 140, 125, 114, 123, 63, 93, 139, 199, 139,
+        122, 70, 151, 70, 60, 186, 78, 218, 184, 143,
+        141, 140, 139, 193, 133, 168, 188, 82, 83, 62,
+        93, 96, 219, 217
+    ]
+    import bpm
+    result = bpm.select_bpm(blist, verbose=True)
+    print result
 
 
-blist = [
-    93, 65, 96, 60, 115, 69, 218, 183, 66, 105, 145,
-    136, 98, 60, 68, 206, 82, 111, 105, 71, 65, 68,
-    163, 74, 133, 100, 151, 96, 158, 100, 108, 176,
-    74, 141, 203, 110, 80, 116, 95, 92, 99, 206,
-    65, 151, 161, 74, 108, 68, 130, 161, 218, 219,
-    84, 184, 70, 208, 140, 69, 68, 141, 135, 157,
-    143, 108, 107, 202, 218, 220, 93, 65, 95, 60,
-    117, 69, 92, 219, 93, 106, 111, 180, 92, 84,
-    68, 186, 176, 70, 79, 219, 121, 66, 209, 110,
-    70, 138, 135, 79, 162, 154, 128, 116, 64, 139,
-    139, 140, 125, 114, 123, 63, 93, 139, 199, 139,
-    122, 70, 151, 70, 60, 186, 78, 218, 184, 143,
-    141, 140, 139, 193, 133, 168, 188, 82, 83, 62,
-    93, 96, 219, 217
-]
-import bpm
-print bpm.blist_analyze(blist, verbose=True)
+def dev_process(file_in, file_out, func_process):
+    # Read
+    print 'Read input file %s' % file_in
+    data_in, wf_in = load_wav(file_in)
+
+    # Process
+    data_out = func_process(data_in)
+    print 'Process done'
+
+    # Write
+    wf_out = wave.open(file_out, 'wb')
+    wf_out.setnchannels(1)
+    wf_out.setframerate(44100)  # 44.1khz
+    wf_out.setsampwidth(2)  # 16bit
+    wf_out.writeframes(data_out)
+    wf_out.close()
+    print 'Write output file %s' % file_out
+
+
+def process_rmvocal(data_in):
+    w_in = numpy.fromstring(data_in, dtype='<i2')
+    left, right = w_in[::2], w_in[1::2]
+    w_out = (left - right) / 2
+
+    data_out = ''
+    for x in w_out:
+        data_out += struct.pack('<h', x)
+
+    return data_out
+
+
+if __name__ == '__main__':
+    dev_process('wav/163_33_陈奕迅 - 44.忘记歌词.wav', 'wav/dev.wav', process_rmvocal)
