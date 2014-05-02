@@ -51,10 +51,11 @@ def select_bpm(blist, tolerance=3, verbose=False):
     return final_bpm, final_proportion
 
 
-def detect_wav(filename, window=3, down_factor=1, rmvocal=False, verbose=False):
+def detect_wav(filename, window=3, overlap=0, down_factor=1, rmvocal=False, verbose=False):
     wf = wave.open(filename, 'rb')
     nchannels, sampwidth, framerate, nframes = wf.getparams()[:4]
 
+    odata = []
     blist = []
     step = window * framerate
     for x in range(0, nframes, step):
@@ -72,6 +73,11 @@ def detect_wav(filename, window=3, down_factor=1, rmvocal=False, verbose=False):
         # Break when sample too short
         if len(wdata) < step:
             break
+
+        # Overlap
+        if overlap > 0:
+            wdata = numpy.concatenate((odata, wdata))
+            odata = wdata[-(overlap * framerate):]
 
         # Downsample
         if down_factor > 1:
@@ -95,22 +101,15 @@ def detect_wav(filename, window=3, down_factor=1, rmvocal=False, verbose=False):
 if __name__ == '__main__':
     # Argument
     parser = argparse.ArgumentParser(description='Process .wav file to determine the Beats Per Minute.')
-    parser.add_argument('file', type=str, nargs='+',
-        help='.wav file for processing')
+    parser.add_argument('file', type=str, nargs='+', help='.wav file for processing')
     parser.add_argument('--verbose', '-v', action='store_true')
-
     # Detect
-    parser.add_argument('--window', '-w', type=int, default=3, metavar='S',
-        help='size of the the window (seconds) that will be scanned to determine the bpm. Default: 3')
-    parser.add_argument('--rmvocal', action='store_true',
-        help='[EXPERIMENTAL] try to remove vocal by mixing left channel with inverted right channel. Default: False')
-    parser.add_argument('--downsample', type=int, default=1, metavar='Q',
-        help='[EXPERIMENTAL] downsample by an integer factor that will increase speed. Default: 1')
-
+    parser.add_argument('--window', '-w', type=int, default=3, metavar='S', help='size of the window (seconds) that will be scanned to determine the bpm. Default: 3')
+    parser.add_argument('--overlap', '-o', type=int, default=0, metavar='S', help='size of the overlap of window (seconds). Default: 0')
+    parser.add_argument('--rmvocal', action='store_true', help='[EXPERIMENTAL] try to remove vocal by mixing left channel with inverted right channel. Default: False')
+    parser.add_argument('--downsample', type=int, default=1, metavar='N', help='[EXPERIMENTAL] downsample by an integer factor that will increase speed. Default: 1')
     # Select
-    parser.add_argument('--tolerance', '-t', type=int, default=3, metavar='N',
-        help='tolerance using in select final BPM. Default: 3')
-
+    parser.add_argument('--tolerance', '-t', type=int, default=3, metavar='N', help='tolerance using in select final BPM. Default: 3')
     args = parser.parse_args()
 
     # Process file list
@@ -120,9 +119,17 @@ if __name__ == '__main__':
             print 'process %s' % filename
 
         # Detect
-        blist = detect_wav(filename, args.window, args.downsample, False, args.verbose)
+        options = {
+            'window': args.window,
+            'overlap': args.overlap,
+            'down_factor': args.downsample,
+            'rmvocal': False,
+            'verbose': args.verbose,
+        }
+        blist = detect_wav(filename, **options)
         if args.rmvocal:
-            blist += detect_wav(filename, args.window, args.downsample, True, args.verbose)
+            options['rmvocal'] = True
+            blist += detect_wav(filename, **options)
 
         # Select
         bpm, proportion = select_bpm(blist, args.tolerance, args.verbose)
