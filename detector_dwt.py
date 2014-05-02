@@ -6,9 +6,9 @@ import scipy.signal
 
 def peak_detect(data):
     max_val = numpy.amax(abs(data))
-    peak_ndx = numpy.where(data == max_val)
-    if len(peak_ndx[0]) == 0:  # if nothing found then the max must be negative
-        peak_ndx = numpy.where(data == -max_val)
+    peak_ndx, = numpy.where(data == max_val)
+    if len(peak_ndx) == 0:  # if nothing found then the max must be negative
+        peak_ndx, = numpy.where(data == -max_val)
     return peak_ndx
 
 
@@ -57,7 +57,7 @@ def detect(data, fs):
     midpoint = len(correl) / 2
     correl_midpoint_tmp = correl[midpoint:]
     peak_ndx = peak_detect(correl_midpoint_tmp[min_ndx:max_ndx])
-    peak_ndx_adjusted = peak_ndx[0] + min_ndx
+    peak_ndx_adjusted = peak_ndx[0] + min_ndx  # use first element in peak_ndx
     bpm = 60. / peak_ndx_adjusted * (fs / max_decimation)
 
     return int(bpm)
